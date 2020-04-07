@@ -1,0 +1,1078 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+<meta charset="UTF-8">
+<script type="text/javascript" src="Constants.js"></script>
+<script type="text/javascript" src="Vector.js"></script>
+<script type="text/javascript" src="ArrayList.js"></script>
+<script type="text/javascript" src="Camera.js"></script>
+<script type="text/javascript" src="Interface.js"></script>
+<script type="text/javascript" src="Moment.js"></script>
+<script type="text/javascript" src="Entity.js"></script>
+<script type="text/javascript" src="Log.js"></script>
+<script type="text/javascript">
+
+// Written by @Alrecenk who probably won't complain if you want to send him money.
+
+window.addEventListener("load", windowLoadHandler, false);
+
+function windowLoadHandler() {
+	// Any stuff you want to do before the canvas app is loaded goes here.
+	canvasApp();
+}
+
+function canvasApp() {
+	//The canvas this app is running on.
+	var theCanvas = document.getElementById("canvasOne");
+	// Comtext you can use to draw on.
+	context = theCanvas.getContext("2d");
+	// Mouse position
+	var mouse_x;
+	var mouse_y;
+	// Where the mouse was last pressed down.
+	var down_mouse_x;
+	var down_mouse_y;
+	//Whether the mouse is currently down.
+	var mouse_down = false ;
+	//Which button is down (0 is left, 2 is right)
+	var mouse_button ;
+	
+	var interface_buttons = {}; // Map from name to buttons currently on the interface.
+	var last_pressed = ""; // last button pressed.
+	var last_speed_clicked = "speed_1"; // Last speed button a user actually clicked.
+	
+	var ship;
+	var ship_parent = earth;
+	var earth;
+	var sun;
+	var mars;
+	var moon;
+	var space;
+	//var solar_system;
+	var camera;
+	var time = 0;
+	current_time = 0 ;
+	var dt = 1;
+	
+	var ship_angle ;
+	var ship_thrust  ;
+	var fuel ;
+	var bonus_fuel;
+	var game_state = SPACE;
+	var fuel_level = 0;
+	var thrust_level = 0;
+	var launch_level = 0;
+	var land_level = 0;
+	var navigation_level = 1 ;
+	var ship_log = new ShipLog(save);
+	
+	var coin_UI = [];
+	var science_UI = [];
+	var box_UI = [];
+	
+	var mission_a = null;
+	var mission_b = null;
+	
+	
+	// Input trackers.
+	var left_down = false, right_down = false, up_down = false, down_down = false;
+	var down_zoom ; // What the zoom was when the mouse was clicked
+	
+	//var game_pads = {};
+	var dead_zone = 0.6;
+	var left_pad = false, right_pad = false, up_pad = false, down_pad = false;
+	
+	function init() {
+		setupGame()
+		theCanvas.addEventListener("mousedown", mouseDownListener, false);
+		window.addEventListener("mousemove", mouseMoveListener, false);
+		window.addEventListener("mouseup", mouseUpListener, false);
+		window.addEventListener('keydown',keyDownListener,false);
+		window.addEventListener('keyup',keyUpListener,false);
+		window.addEventListener('mousewheel', mouseWheelListener);//For Chrome
+		window.addEventListener('DOMMouseScroll', mouseWheelListener);// For Firefox
+		window.addEventListener("gamepadconnected", function(e) { gamepadHandler(e, true); }, false);
+		window.addEventListener("gamepaddisconnected", function(e) { gamepadHandler(e, false); }, false);
+		setInterval(timeListener, 1000/60); // Timer at 60 hertz.
+	}
+	
+	function setupGame(){
+		
+		makeSpaceUI();
+		
+		ship_log.addReset(earth);
+		ship_angle = 0;
+		ship_thrust = 0 ;
+		fuel = MAX_FUEL[fuel_level];
+		bonus_fuel = 0;
+		
+		if(sun == null){
+			sun = new Entity("Sun", null, 30000, 10000, "#FFD000", [0, 0], [0, 0], current_time);
+			// Inner solar system
+			earth = sun.createChildEntity("Earth", 500, "#0000FF", 10, [5000, -300000]);
+			earth.has_fuel = true;
+		    earth.has_brakes = true;
+		    earth.has_colony = true;
+		    earth.has_launchpad = true;
+			earth.has_lab = true;
+		    solar_system = [sun, earth];
+		    solar_system.push(earth.createChildEntity("Moon", 50, "#808080", .2, [3000, 0]));
+		    solar_system.push(sun.createChildEntity("Mars", 400, "#AF1000", 1, [300000, -200000]));
+		    solar_system.push(sun.createChildEntity("Mercury", 300, "#AFAF00", 1, [100000, -100000]));
+		    var venus = sun.createChildEntity("Venus", 500, "#AF6000", 10, [100000, 200000], true)
+		    solar_system.push(venus);
+		    solar_system.push(venus.createChildEntity("Minerva", 75, "#00AF80", .3, [5000, 0], true));
+		    solar_system.push(venus.createChildEntity("Diana", 75, "#8000AF", .3, [-5000, 0], true));
+		    
+		    //Asteroid belt stuff
+		    
+		    for(var k = 0 ; k < ASTEROIDS;k++){
+		    	var angle = 2 * Math.PI*k/ASTEROIDS + Math.sin(k)*.1;
+		    	var radius = 550000 + Math.cos(k)*50000;
+		    	var x = Math.cos(angle)*radius;
+		    	var y = Math.sin(angle)*radius;
+		    	var asteroid = sun.createChildEntity("Asteroid Belt", ASTEROID_RADIUS, "#5F4000", 0, [x, y]);
+		    	asteroid.type = ASTEROID;
+		    	solar_system.push(asteroid);
+		    }
+		    var k = ASTEROIDS;
+		    var angle = 2 * Math.PI*k/ASTEROIDS + Math.sin(k)*.1;
+	    	var radius = 550000;
+	    	var x = Math.cos(angle)*radius;
+	    	var y = Math.sin(angle)*radius;
+		    
+		    var asteroid_alpha = sun.createChildEntity("Asteroid Alpha", ASTEROID_RADIUS*1.2, "#5F4000", 25, [x, y])
+		    solar_system.push(asteroid_alpha);
+		    var ALPHA_MOONS = 5;
+		    for(var j=0;j < ALPHA_MOONS; j++){
+		    	var angle = 2 * Math.PI*j/ALPHA_MOONS + Math.sin(j+k)*.1;
+		    	var radius = 5000 + (1+Math.cos(j+k))*25000;
+		    	var x = Math.cos(angle)*radius;
+		    	var y = Math.sin(angle)*radius;
+		    	var asteroid = asteroid_alpha.createChildEntity("Asteroid Alpha Belt", ASTEROID_RADIUS*(2+Math.sin(5*j))*.15, "#5F4000", 0, [x, y]);
+		    	asteroid.type = ASTEROID;
+		    	solar_system.push(asteroid);
+		    }
+		    
+		    k = ASTEROIDS*1.33;
+		    var angle = 2 * Math.PI*k/ASTEROIDS + Math.sin(k)*.1;
+	    	var radius = 550000;
+	    	var x = Math.cos(angle)*radius;
+	    	var y = Math.sin(angle)*radius;
+		    var asteroid_beta= sun.createChildEntity("Asteroid Beta", ASTEROID_RADIUS*1.2, "#5F4000", 25, [x, y])
+		    solar_system.push(asteroid_beta);
+		    var BETA_MOONS = 10;
+		    for(var j=0;j < BETA_MOONS; j++){
+		    	var angle = 2 * Math.PI*j/BETA_MOONS + Math.sin(j+k)*.1;
+		    	var radius = 5000 + (1+Math.cos(j+k))*25000;
+		    	var x = Math.cos(angle)*radius;
+		    	var y = Math.sin(angle)*radius;
+		    	var asteroid = asteroid_beta.createChildEntity("Asteroid Beta Belt", ASTEROID_RADIUS*(2+Math.sin(5*j))*.15, "#5F4000", 0, [x, y]);
+		    	asteroid.type = ASTEROID;
+		    	solar_system.push(asteroid);
+		    }
+		    
+		    k = ASTEROIDS*1.66;
+		    var angle = 2 * Math.PI*k/ASTEROIDS + Math.sin(k)*.1;
+	    	var radius = 550000;
+	    	var x = Math.cos(angle)*radius;
+	    	var y = Math.sin(angle)*radius;
+		    var asteroid_gamma = sun.createChildEntity("Asteroid Gamma", ASTEROID_RADIUS*1.2, "#5F4000", 25, [x, y])
+		    solar_system.push(asteroid_gamma);
+		    var GAMMA_MOONS = 15;
+		    for(var j=0;j < GAMMA_MOONS; j++){
+		    	var angle = 2 * Math.PI*j/GAMMA_MOONS + Math.sin(j+k)*.1;
+		    	var radius = 5000 + (1+Math.cos(j+k))*25000;
+		    	var x = Math.cos(angle)*radius;
+		    	var y = Math.sin(angle)*radius;
+		    	var asteroid = asteroid_gamma.createChildEntity("Asteroid Gamma Belt", ASTEROID_RADIUS*(2+Math.sin(5*j))*.2, "#5F4000", 0, [x, y]);
+		    	asteroid.type = ASTEROID;
+		    	solar_system.push(asteroid);
+		    }
+		    
+		    // outer solar system
+		    var jupiter = sun.createChildEntity("Jupiter", 8000, "#9F5010", 100, [800000, 800000], false)
+		    solar_system.push(jupiter);
+		    solar_system.push(jupiter.createChildEntity("Io", 180, "#DDDDDD", .8, [15000, 0], false));
+		    solar_system.push(jupiter.createChildEntity("Ganymede", 150, "#DDDDDD", .5, [18000, 0], false));
+		    solar_system.push(jupiter.createChildEntity("Adrastea", 220, "#DDDDDD", 1, [20000, 0], true));
+		    solar_system.push(jupiter.createChildEntity("Europa", 300, "#DDDDDD", 3, [24000, 0], false));
+		    solar_system.push(jupiter.createChildEntity("Callisto", 200, "#DDDDDD", 1, [28000, 0], false));
+		    
+		    
+		    var comet_a = sun.createChildEntity("Comet A", 5000, "#FFFFFF", 50, [-500000, -500000], false);
+		    comet_a.applyThrust(current_time+.0001,[.07,-.07]);
+		    solar_system.push(comet_a);
+		    
+		    var comet_b = sun.createChildEntity("Comet B", 5000, "#FFFFFF", 50, [700000, 700000], false);
+		    comet_b.applyThrust(current_time,[-.07,.07]);
+		    solar_system.push(comet_b);
+		    
+		    var pluto = sun.createChildEntity("Pluto", 300, "#10A910", 10, [1200000, -1200000], true);
+		    solar_system.push(pluto);
+		    solar_system.push(pluto.createChildEntity("Charon", 280, "#10A910", .9, [6000, 0], false));
+			
+		    for(var k = 0; k < solar_system.length; k++){
+		    	if(solar_system[k] != sun){
+		    		solar_system[k].fixOrbit();
+		    	}
+		    	if(solar_system[k].type == PLANET){
+		    		solar_system[k].prepareTransfers(solar_system);
+		    	}
+		    }
+		    
+		    load();
+		}
+		
+		var e_m = earth.getMoment(current_time);
+	    ship =  new Entity("Ship", earth, 1, .01, "#FFFFFF", [e_m.x[0], e_m.x[1]], [e_m.v[0], e_m.v[1]], current_time);
+	    ship.type = SHIP;	
+	    ship.computeOrbit(ORBITS_TO_PREDICT[navigation_level]);
+	    space = [];
+	    for(var k=0; k<solar_system.length;k++){
+	    	space.push(solar_system[k]);
+	    }
+	    space.push(ship);
+		// TODO make canvas size adjustable
+	    camera = new Camera([0,0,1280,720], 0, 0, 2000, 3, theCanvas, context);
+	    
+	    resetSpeed();
+	    land();
+
+	}
+	
+	// Load occurs only once after universe is set up so object can be assumed initialized
+	function load(){
+		if (typeof(Storage) !== "undefined" && localStorage.hasSave) {
+		    coin = parseFloat(localStorage.getItem("coin"));
+		    science = parseFloat(localStorage.getItem("science"));
+		    fuel_level = parseFloat(localStorage.getItem("fuel_level"));
+			thrust_level = parseFloat(localStorage.getItem("thrust_level"));
+			launch_level = parseFloat(localStorage.getItem("launch_level"));
+			land_level = parseFloat(localStorage.getItem("land_level"));
+			navigation_level = parseFloat(localStorage.getItem("navigation_level"));
+			accomplishments = localStorage.getItem("accomplishments");
+			for(var k=0;k < solar_system.length;k++){
+				var p = solar_system[k];
+				if(p.type == PLANET && p != sun){ // If buildable sciencable location.
+					p.has_fuel = localStorage.getItem(p.name + ".has_fuel") == "true";
+					p.has_colony = localStorage.getItem(p.name + ".has_colony") == "true";
+					p.has_lab = localStorage.getItem(p.name + ".has_lab") == "true";
+					p.has_launchpad = localStorage.getItem(p.name + ".has_launchpad") == "true";
+					p.has_brakes = localStorage.getItem(p.name + ".has_brakes") == "true";
+					p.has_satellite = localStorage.getItem(p.name + ".has_satellite") == "true";
+					
+					p.science_fly_by = localStorage.getItem(p.name + ".science_fly_by") == "true";
+					p.science_orbit = localStorage.getItem(p.name + ".science_orbit") == "true";
+					p.science_land = localStorage.getItem(p.name + ".science_land") == "true";
+					p.science_return = localStorage.getItem(p.name + ".science_return") == "true";
+				}
+			}
+		} else {
+			console.log("No save game found.");
+		}
+		
+	}
+	// Should be called everytime anything that affects coin or science happens.
+	function save(){
+		if (typeof(Storage) !== "undefined") {
+			localStorage.hasSave = true;
+			localStorage.setItem("coin", coin);
+		    localStorage.setItem("science", science);
+		    localStorage.setItem("fuel_level", fuel_level);
+			localStorage.setItem("thrust_level", thrust_level);
+			localStorage.setItem("launch_level", launch_level);
+			localStorage.setItem("land_level", land_level);
+			localStorage.setItem("navigation_level", navigation_level);
+			localStorage.setItem("accomplishments", accomplishments);
+			for(var k=0;k < solar_system.length;k++){
+				var p = solar_system[k];
+				if(p.type == PLANET && p != sun){ // If buildable sciencable location.
+					localStorage.setItem(p.name + ".has_fuel", p.has_fuel) ;
+					 localStorage.setItem(p.name + ".has_colony", p.has_colony);
+					 localStorage.setItem(p.name + ".has_lab", p.has_lab);
+					 localStorage.setItem(p.name + ".has_launchpad", p.has_launchpad);
+					 localStorage.setItem(p.name + ".has_brakes", p.has_brakes);
+					 localStorage.setItem(p.name + ".has_satellite", p.has_satellite);
+					
+					 localStorage.setItem(p.name + ".science_fly_by", p.science_fly_by) ;
+					 localStorage.setItem(p.name + ".science_orbit", p.science_orbit);
+					 localStorage.setItem(p.name + ".science_land", p.science_land);
+					 localStorage.setItem(p.name + ".science_return", p.science_return);
+				}
+			}
+		}
+	}
+	
+	
+	function updateTimeButton(speed, ship_height, minimum){
+		if(ship_height > minimum){
+			interface_buttons["speed_"+speed].y = 10;
+			last_pressed = "speed_"+speed; // Keep at highest speed.
+		}else{
+			interface_buttons["speed_"+speed].y = 10000;
+		}
+	}
+		
+	function updateTimeButtons(ship_height){
+		if(ship.landed){ // If landed
+			ship_height = 1000000; // You can set the speed to whatever.
+		}
+		// Speed turns up as buttons are added, so fastest speed available is set.
+		updateTimeButton(1, ship_height, -1000000);
+		updateTimeButton(3, ship_height, 5);
+		updateTimeButton(10, ship_height, 10);
+		updateTimeButton(30, ship_height, 100);
+		updateTimeButton(100, ship_height, 300);
+		updateTimeButton(1000, ship_height,1000);
+		updateTimeButton(10000, ship_height, 20000);
+		updateTimeButton(100000, ship_height, 50000);
+		
+		// Turn speed back down to last manually selected speed.
+		if(interface_buttons[last_speed_clicked].y == 10){
+			last_pressed = last_speed_clicked;
+		}
+		setSpeed(parseFloat(last_pressed.substring(6,last_pressed.length)));
+	}
+	
+	function setSpeedClick(){
+		//Update the speed.
+		last_speed_clicked = last_pressed;
+		setSpeed(parseFloat(last_pressed.substring(6,last_pressed.length)));
+		
+	}
+	
+	function setSpeed(speed){
+		//Update the speed.
+		dt = BASE_SPEED_RATE*speed;
+		if(dt > 100){
+			ship_thrust = 0;
+		}
+		//Update the highlighted button.
+		current_speed_button.edge_color = "#FFFFFF";
+		current_speed_button = interface_buttons[last_pressed];
+		current_speed_button.edge_color = "#00FF00";	
+	}
+	
+	function resetSpeed(){
+		last_speed_clicked = "speed_1";
+		last_pressed = "speed_1";
+		setSpeed(1);
+	}
+	
+	// Make all of the buttons that appear when you're in Space.
+	function makeSpaceUI(){
+		//TODO make screen size adjustable and all button locations relative
+		interface_buttons = {};
+	    interface_buttons["speed_label"] = new InterfaceButton(400, 10, 80, 40, "Speed:", 20, "#FFFFFF", "#000000", "#000000", 3, null);
+	    interface_buttons["speed_1"] = new InterfaceButton(480, 10, 30, 40, "1", 20, "#000000", "#808080", "#00FF00", 3, setSpeedClick);
+	    interface_buttons["speed_3"] = new InterfaceButton(520, 10, 30, 40, "3", 20, "#000000", "#808080", "#FFFFFF", 3, setSpeedClick);
+	    interface_buttons["speed_10"] = new InterfaceButton(560, 10, 40, 40, "10", 20, "#000000", "#808080", "#FFFFFF", 3, setSpeedClick);
+	    interface_buttons["speed_30"] = new InterfaceButton(610, 10, 40, 40, "30", 20, "#000000", "#808080", "#FFFFFF", 3, setSpeedClick);
+	    interface_buttons["speed_100"] = new InterfaceButton(660, 10, 50, 40, "100", 20, "#000000", "#808080", "#FFFFFF", 3, setSpeedClick);
+	    interface_buttons["speed_1000"] = new InterfaceButton(720, 10, 60, 40, "1000", 20, "#000000", "#808080", "#FFFFFF", 3, setSpeedClick);
+	    interface_buttons["speed_10000"] = new InterfaceButton(790, 10, 60, 40, "10^4", 20, "#000000", "#808080", "#FFFFFF", 3, setSpeedClick);
+	    interface_buttons["speed_100000"] = new InterfaceButton(860, 10, 60, 40, "10^5", 20, "#000000", "#808080", "#FFFFFF", 3, setSpeedClick);
+	    interface_buttons["reset"] = new InterfaceButton(1180, 10, 100, 40, "Respawn", 20, "#000000", "#808080", "#FFFFFF", 3, setupGame);
+	    interface_buttons["money_label"] = new InterfaceButton(40, FUEL_BAR[3], 70, 60, ""+coin, 28, "#FFFFFF", null, null, 3, null);
+	    interface_buttons["science_label"] = new InterfaceButton(120, FUEL_BAR[3], 60, 60, ""+science, 28, "#FFFFFF", null, null, 3, null);
+	    current_speed_button = interface_buttons["speed_1"];
+	    
+	    var m = interface_buttons["money_label"];
+	    var s = interface_buttons["science_label"];
+	    coin_UI = [[m.x+m.width, m.y + m.height/2]];
+	    science_UI = [[s.x+s.width, s.y + s.height/2]];
+	    box_UI = [];
+	    
+	    game_state = SPACE;
+	}
+	
+	function baseStationUI(){
+		makeSpaceUI();
+	    interface_buttons["station_border"] = new InterfaceButton(400, 60, 480, 300, "", 25, null, null, "#FFFFFF", 3, null);
+	    interface_buttons["station_label"] = new InterfaceButton(400, 60, 480, 100, "Welcome to "+ship.getParent().name +"!", 25, "#FFFFFF", null, null, 3, null);
+	    interface_buttons["launch"] = new InterfaceButton(410, 270, 460, 50, "Launch!", 25, "#000000", "#808080", "#FFFFFF", 3, launch);
+	    resetSpeed();
+	}
+	
+	function makeStationUI(){
+		
+		baseStationUI();
+		var site = ship.getParent();
+	    
+	    if(site.has_colony){
+	    	interface_buttons["colony"] = new InterfaceButton(420, 150, 140, 50, "Missions", 20, "#000000", "#808080", "#FFFFFF", 3, makeMissionUI);
+	    	interface_buttons["show_log"] = new InterfaceButton(420, 210, 140, 50, "Ship Log", 20, "#000000", "#808080", "#FFFFFF", 3, makeLogUI);
+	    }
+	    if(site.has_lab){
+	    	interface_buttons["buy_upgrades"] = new InterfaceButton(720, 150, 140, 50, "Upgrades", 20, "#000000", "#808080", "#FFFFFF", 3, makeUpgradeUI);
+	    	interface_buttons["show_research"] = new InterfaceButton(720, 210, 140, 50, "Research", 20, "#000000", "#808080", "#FFFFFF", 3, makeResearchUI);
+	    }
+	    if(site.has_fuel && !site.has_satellite){
+	    	interface_buttons["build"] = new InterfaceButton(580, 150, 120, 50, "Build", 20, "#000000", "#808080", "#FFFFFF", 3, makeBuildUI);
+	    }else if(!site.has_satellite){
+	    	interface_buttons["build_station"] = new InterfaceButton(500, 150, 280, 50, "Build Station (" + STATION_COST+"   )", 20, "#000000", "#808080", "#FFFFFF", 3, buildStation);
+	    	coin_UI.push([705, 173]);
+	    }
+	    
+	    
+		
+	    game_state = MAIN_MENU;
+	}
+	
+	function buildStation(){
+		if(coin >= STATION_COST){
+			coin -= STATION_COST;
+			ship.getParent().has_fuel = true;
+			accomplishments += "\nBuilt station on " + ship.getParent().name +".";
+			save();
+		}
+		makeStationUI();
+	}
+	
+	function buildColony(){
+		if(coin >= COLONY_COST){
+			coin -= COLONY_COST;
+			ship.getParent().has_colony = true;
+			accomplishments += "\nFounded colony on " + ship.getParent().name +".";
+			save();
+		}
+		makeBuildUI();
+	}
+	
+	function buildLab(){
+		if(coin >= LAB_COST){
+			coin -= LAB_COST;
+			ship.getParent().has_lab = true;
+			science += SCIENCE_LAB_REWARD;
+			accomplishments += "\nBuilt lab on " + ship.getParent().name +".";
+			save();
+		}
+		makeBuildUI();
+	}
+	
+	function buildLaunchpad(){
+		if(coin >= LAUNCHPAD_COST){
+			coin -= LAUNCHPAD_COST;
+			ship.getParent().has_launchpad = true;
+			save();
+		}
+		makeBuildUI();
+	}
+	
+	function buildBrakes(){
+		if(coin >= BRAKES_COST){
+			coin -= BRAKES_COST;
+			ship.getParent().has_brakes = true;
+			save();
+		}
+		makeBuildUI();
+	}
+	
+	function buildSatellite(){
+		if(coin >= SATELLITE_COST){
+			coin -= SATELLITE_COST;
+			ship.getParent().has_satellite = true;
+			save();
+		}
+		makeBuildUI();
+	}
+	
+	function makeBuildUI(){
+		baseStationUI();
+		var site = ship.getParent();
+		
+		if(!site.has_colony && site.science_return){ // Can only colonize after achieving return science reward.
+			interface_buttons["build_colony"] = new InterfaceButton(410, 150, 180, 50, "Colony(" + COLONY_COST+"   )", 20, "#000000", "#808080", "#FFFFFF", 3, buildColony);
+			coin_UI.push([541, 172]);
+		}else if(site.has_colony && !site.has_lab){
+			interface_buttons["build_lab"] = new InterfaceButton(410, 150, 180, 50, "Lab ("+LAB_COST+"   )", 20, "#000000", "#808080", "#FFFFFF", 3, buildLab);
+			coin_UI.push([529, 172]);
+		}
+		if(!site.has_launchpad){
+			interface_buttons["build_launchpad"] = new InterfaceButton(690, 150, 180, 50, "Launchpad ("+LAUNCHPAD_COST+"   )", 20, "#000000", "#808080", "#FFFFFF", 3, buildLaunchpad);
+			coin_UI.push([842, 172]);
+		}else if(!site.has_brakes){
+			coin_UI.push([824, 172]);
+			interface_buttons["build_brakes"] = new InterfaceButton(690, 150, 180, 50, "Brakes ("+BRAKES_COST+"   )", 20, "#000000", "#808080", "#FFFFFF", 3, buildBrakes);
+		}
+		if(site.has_brakes && site.has_lab && !site.has_satellite){
+			coin_UI.push([713, 172]);
+			interface_buttons["build_satellite"] = new InterfaceButton(480, 150, 320, 50, "Build Satellite (" + SATELLITE_COST +"   )", 20, "#000000", "#808080", "#FFFFFF", 3, buildSatellite);
+		}
+		interface_buttons["back"] = new InterfaceButton(580, 210, 120, 50, "Back", 20, "#000000", "#808080", "#FFFFFF", 3, makeStationUI);
+	}
+	
+	function makeMissionUI(){
+		baseStationUI();
+		var m = null;
+		for(var k=0;k<mission.length;k++){
+			if(mission[k].from == ship.getParent()){
+				m = mission[k];
+			}
+		}
+		if(m!=null){
+			interface_buttons["show_mission"] = new InterfaceButton(410, 150, 460, 50, m.toString(), 18, "#000000", "#808080", "#FFFFFF", 3, null);
+		}else if(mission.length >= 3){
+			interface_buttons["show_mission"] = new InterfaceButton(410, 150, 460, 50, "You have too many missions!", 18, "#000000", "#808080", "#FFFFFF", 3, null);
+		}else{
+			mission_a = generateMission(ship);
+			mission_b = generateMission(ship);
+			if(mission_a != null){
+				interface_buttons["mission_a"] = new InterfaceButton(410, 150, 225, 50, mission_a.getTitle(), 20, "#000000", "#808080", "#FFFFFF", 3, addMissionA);
+			}
+			//coin_UI.push([514, 172]);
+			if(mission_b !=null){
+				interface_buttons["mission_b"] = new InterfaceButton(645, 150, 225, 50, mission_b.getTitle(), 20, "#000000", "#808080", "#FFFFFF", 3, addMissionB);
+			}
+		}
+			//coin_UI.push([840, 172]);
+		interface_buttons["back"] = new InterfaceButton(580, 210, 120, 50, "Back", 20, "#000000", "#808080", "#FFFFFF", 3, makeStationUI);
+	}
+	
+	function addMissionA(){
+		mission.push(mission_a);
+		makeStationUI();
+	}
+	
+	function addMissionB(){
+		mission.push(mission_b);
+		makeStationUI();
+	}
+
+	function upgradeFuel(){
+		if(science >= FUEL_COST){
+			science -= FUEL_COST;
+			fuel_level++;
+			save();
+		}
+		makeUpgradeUI();
+	}
+	
+	function upgradeNavigation(){
+		if(science >= NAVIGATION_COST){
+			science -= NAVIGATION_COST;
+			navigation_level++;
+			save();
+		}
+		makeUpgradeUI();
+	}
+	
+	function upgradeLand(){
+		if(science >= LAND_COST){
+			science -= LAND_COST;
+			land_level++;
+			save();
+		}
+		makeUpgradeUI();
+	}
+	
+	function upgradeLaunch(){
+		if(science >= LAUNCH_COST){
+			science -= LAUNCH_COST;
+			launch_level++;
+			save();
+		}
+		makeUpgradeUI();
+	}
+	
+	function upgradeThrust(){
+		if(science >= THRUST_COST){
+			science -= THRUST_COST;
+			thrust_level++;
+			save();
+		}
+		makeUpgradeUI();
+	}
+	
+	function makeUpgradeUI(){
+		baseStationUI();
+		
+		if(fuel_level < MAX_FUEL.length - 1){
+			interface_buttons["upgrade_fuel"] = new InterfaceButton(405, 150, 135, 50, "Fuel " + (fuel_level+1) +"(" + FUEL_COST+"   )", 20, "#000000", "#808080", "#FFFFFF", 3, upgradeFuel);
+			science_UI.push([509, 173]);
+		}
+		if(navigation_level < ORBITS_TO_PREDICT.length - 1){
+			interface_buttons["upgrade_navigation"] = new InterfaceButton(550, 150, 180, 50, "Navigation " + (navigation_level+1) +"(" + NAVIGATION_COST+"   )", 20, "#000000", "#808080", "#FFFFFF", 3, upgradeNavigation);
+			science_UI.push([698, 173]);
+		}
+		if(land_level < MAX_LAND_SPEED.length - 1){
+			interface_buttons["upgrade_land"] = new InterfaceButton(740, 150, 135, 50,"Land " + (land_level+1) +"(" + LAND_COST+"   )", 20, "#000000", "#808080", "#FFFFFF", 3, upgradeLand);
+			science_UI.push([847, 173]);
+		}
+		if(thrust_level < THRUST_POWER.length - 1){
+			interface_buttons["upgrade_thrust"] = new InterfaceButton(410, 210, 160, 50, "Thrust " + (thrust_level+1) +"(" + THRUST_COST+"   )", 20, "#000000", "#808080", "#FFFFFF", 3, upgradeThrust);
+			science_UI.push([535, 233]);
+		}
+		if(launch_level < BONUS_ACC.length -1){
+			interface_buttons["upgrade_launch"] = new InterfaceButton(710, 210, 160, 50,"Launch " + (launch_level+1) +"(" + LAUNCH_COST+"   )", 20, "#000000", "#808080", "#FFFFFF", 3, upgradeLaunch);
+			science_UI.push([840, 233]);
+		}
+		interface_buttons["back"] = new InterfaceButton(580, 210, 120, 50, "Back", 20, "#000000", "#808080", "#FFFFFF", 3, makeStationUI);
+	}
+	
+	function makeResearchUI(){
+		makeSpaceUI();
+		
+		interface_buttons["station_border"] = new InterfaceButton(40, 90, 1200, 620, "", 25, null, "#202020", "#FFFFFF", 3, null);
+		var label_text = "Fly by -- Orbit --   Land -- Return --  Lab" ;
+		interface_buttons["label_0"] = new InterfaceButton(180, 100, 400, 50, label_text, 20, "#FFFFFF", null, null, 3, null);
+		interface_buttons["label_1"] = new InterfaceButton(710, 100, 400, 50, label_text, 20, "#FFFFFF", null, null, 3, null);
+	    interface_buttons["back"] = new InterfaceButton(580, 650, 120, 50, "Back", 20, "#000000", "#808080", "#FFFFFF", 3, makeStationUI);
+	    var x_slot=0, y_slot=0;
+	    var box_step = 75;
+	    for(var k = 0 ;k < solar_system.length;k++){
+	    	var p = solar_system[k]
+	    	if(p.type == PLANET && p != sun){
+	    		var x = 50 + x_slot*500;
+	    		var y = 150 + y_slot*50;
+	    		interface_buttons[p.name] = new InterfaceButton(x, y, 180, 50, p.name, 20, "#FFFFFF", null, null, 3, null);
+	    		
+	    		var box_x = 55+interface_buttons["label_"+x_slot].x;
+	    		var box_y = y + 20;
+	    		if(p.science_fly_by){
+	    			science_UI.push([box_x, box_y]);
+	    		}
+	    		box_UI.push([box_x, box_y]);
+		    	box_x+=box_step;
+		    	if(p.science_orbit){
+	    			science_UI.push([box_x, box_y]);
+	    		}
+	    		box_UI.push([box_x, box_y]);
+		    	box_x+=box_step;
+		    	if(p.science_land){
+	    			science_UI.push([box_x, box_y]);
+	    		}
+	    		box_UI.push([box_x, box_y]);
+		    	box_x+=box_step;
+		    	if(p.science_return){
+	    			science_UI.push([box_x, box_y]);
+	    		}
+	    		box_UI.push([box_x, box_y]);
+		    	box_x+=box_step;
+		    	if(p.has_lab){
+	    			science_UI.push([box_x, box_y]);
+	    		}
+	    		box_UI.push([box_x, box_y]);
+		    	box_x+=box_step;
+	    		
+	    		y_slot = y_slot + 1;
+	    		if(y_slot > 9){
+	    			y_slot = 0 ;
+	    			x_slot ++;
+	    		}
+	    	}
+	    }
+	    interface_buttons["completion"] = new InterfaceButton(550, 85, 180, 50, science_UI.length-1 +"%", 40, "#FFFFFF", null, null, 3, null);
+	}
+		
+	function makeLogUI(){
+		makeSpaceUI();
+		
+		interface_buttons["station_border"] = new InterfaceButton(40, 90, 1200, 620, "", 25, null, "#202020", "#FFFFFF", 3, null);
+		interface_buttons["back"] = new InterfaceButton(580, 650, 120, 50, "Back", 20, "#000000", "#808080", "#FFFFFF", 3, makeStationUI);
+		interface_buttons["label_0"] = new InterfaceButton(80, 100, 200, 50, "Missions:", 20, "#FFFFFF", null, null, 3, null);
+		interface_buttons["label_1"] = new InterfaceButton(80, 360, 200, 50, "Highlights:", 20, "#FFFFFF", null, null, 3, null);
+		interface_buttons["label_2"] = new InterfaceButton(650, 100, 200, 50, "Ship Log:", 20, "#FFFFFF", null, null, 3, null);
+		for(var k = 0 ; k< mission.length;k++){
+			interface_buttons["mission_"+k] = new InterfaceButton(40, 160+60*k, 490, 50, mission[k].toString(), 20, "#FFFFFF", null, null, 3, null);
+			interface_buttons["abandon_"+k] = new InterfaceButton(530, 160+60*k, 130, 50, "Abandon", 20, "#000000", "#808080", "#FFFFFF", 3, abandonMission);
+		}
+		
+		var log_s = ship_log.toString().split("\n");
+		var j = 0 ;
+		for(var k = Math.max(log_s.length-17,0) ; k< log_s.length;k++){
+			interface_buttons["log_label_"+k] = new InterfaceButton(600, 50+30*j, 700, 500,log_s[k] , 16, "#FFFFFF", null, null, 3, null);
+			j++;
+		}
+		
+		var acc = accomplishments.split("\n");
+		var j = 0 ;
+		for(var k = Math.max(acc.length-8,0) ; k< acc.length;k++){
+			interface_buttons["acc_label_"+k] = new InterfaceButton(80, 310+30*j, 500, 500, acc[k] , 16, "#FFFFFF", null, null, 3, null);
+			j++;
+		}
+	}
+	
+	function abandonMission(){
+		var which = parseInt(last_pressed.substring(8,last_pressed.length));
+		mission.splice(which,1);
+		makeLogUI();
+	}
+	
+	function launch(){
+		makeSpaceUI();
+		resetSpeed();
+		var old_m = ship.getMoment(current_time);
+		var m = new Moment(ship, old_m.parent_moment, current_time, [old_m.x[0], old_m.x[1]-ship.radius*1.1], [old_m.v[0], old_m.v[1] - LAUNCH_VELOCITY]);
+		//ship.moment = [m];
+		ship.moment = new ArrayList(1000);
+		ship.moment.set(0,m);
+		ship_angle = -Math.PI/2-.0001;
+		ship.landed = false;
+		if(!old_m.parent_moment.entity.has_launchpad){
+			ship_thrust = 2;
+		}
+	}
+	
+	function land(){
+		resetSpeed();
+		camera.zoom = 30;
+	
+		//ship.moment =[ship.getMoment(current_time)];
+		var new_moment = new ArrayList(1000);
+		new_moment.set(0,ship.getMoment(current_time));
+		ship.moment = new_moment;
+		ship.landed = true;
+		makeStationUI();
+	}
+	
+	function drawScreen() {
+		//bg
+		context.fillStyle = "#000000";
+		context.fillRect(0,0,theCanvas.width,theCanvas.height);
+		
+		// Draw space objects.
+		for(var k=0;k<space.length;k++){
+			if(space[k].type == SHIP){
+				space[k].cleanOldMoments(current_time);
+				space[k].computeOrbit(ORBITS_TO_PREDICT[navigation_level]);
+				var m = space[k].getMoment(current_time);
+				var thrust_draw = ship_thrust;
+				if(bonus_fuel > BONUS_DRAIN && !ship.landed){
+					thrust_draw+=4;
+				}
+				camera.drawShip(m.x[0], m.x[1], ship_angle, space[k].radius, thrust_draw);
+				if(!ship.landed){
+					space[k].drawOrbit(camera, current_time, navigation_level, land_level);
+				}
+			}else{
+				space[k].draw(camera, current_time) ;
+			}
+		}
+		
+		// Draw any buttons currently on the interface.
+		for (var button_name in interface_buttons) {
+	        if (interface_buttons.hasOwnProperty(button_name)) {
+	        	interface_buttons[button_name].draw();
+	        }
+	    }
+		
+		// Draw Fuel Guage
+		drawRoundedRect(FUEL_BAR[0], FUEL_BAR[1], FUEL_BAR[2]-FUEL_BAR[0], FUEL_BAR[3]-FUEL_BAR[1], 5, "#A00000", "#DDDDDD", 2);
+		drawRoundedRect(FUEL_BAR[0], FUEL_BAR[1], (FUEL_BAR[2]-FUEL_BAR[0])*fuel/MAX_FUEL[fuel_level], FUEL_BAR[3]-FUEL_BAR[1], 5, "#00D000", "#DDDDDD", 2);
+		drawRoundedRect(FUEL_BAR[0], FUEL_BAR[1], (FUEL_BAR[2]-FUEL_BAR[0])*bonus_fuel/LAUNCHPAD_BONUS_FUEL[launch_level], FUEL_BAR[3]-FUEL_BAR[1], 5, "#801080", "#DDDDDD", 2);
+		if(bonus_fuel >= LAUNCHPAD_BONUS_FUEL[launch_level]/2){
+			drawText(""+Math.round(fuel) +"(+"+Math.round(bonus_fuel)+")", 12, "#FFFFFF", FUEL_BAR[0], FUEL_BAR[1]+2, FUEL_BAR[2]-FUEL_BAR[0]);
+		}else if(bonus_fuel >= BONUS_DRAIN){
+			drawText(""+Math.round(fuel) +"(+"+Math.round(bonus_fuel)+")", 12, "#000000", FUEL_BAR[0], FUEL_BAR[1]+2, FUEL_BAR[2]-FUEL_BAR[0]);
+		}else if(fuel > MAX_FUEL[fuel_level]/2){
+			drawText(""+Math.round(fuel), 12, "#000000", FUEL_BAR[0], FUEL_BAR[1]+2, FUEL_BAR[2]-FUEL_BAR[0]);
+		}else{
+			drawText(""+Math.round(fuel), 12, "#FFFFFF", FUEL_BAR[0], FUEL_BAR[1]+2, FUEL_BAR[2]-FUEL_BAR[0]);
+		}
+		// Draw resource counters and markers.
+		var m = interface_buttons["money_label"];
+		m.text = "" + coin;
+		var s = interface_buttons["science_label"];
+	    s.text = "" + science;
+	    for(var k=0;k<coin_UI.length;k++){
+	    	drawCoin(coin_UI[k][0], coin_UI[k][1]);
+	    }
+	    for(var k=0;k<science_UI.length;k++){
+	    	drawFlask(science_UI[k][0], science_UI[k][1]);
+	    }
+	    for(var k=0;k<box_UI.length;k++){
+	    	var size = 20;
+	    	drawRoundedRect(box_UI[k][0]-size/2, box_UI[k][1]-size/2, size, size, 0, null, "#FFFFFF", 1);
+	    }
+	}
+	
+	// Return current time in seconds accurate to millisecond.
+	var first_time = (new Date()).getTime()*0.001;
+	function getSeconds(){
+		return (new Date()).getTime()*0.001 - first_time;
+	}
+	
+	var last_time = getSeconds();
+	function timeListener(){
+		var last_m = ship.getMoment(current_time);
+		//Update game time.
+		var time_since_last_update = getSeconds() - last_time;
+		current_time = current_time + dt*time_since_last_update ;
+		last_time = getSeconds();
+		var m = ship.getMoment(current_time);
+		var p = m.parent_moment;
+		ship_parent = p.entity;
+		
+		var moved = !ship.landed && (ship_thrust > 0 || bonus_fuel >= BONUS_DRAIN);
+		
+		scanGamePads();
+		// Control ship.
+		if(left_down || left_pad){
+			resetSpeed();
+			ship_angle -=  TURN_RATE*time_since_last_update;
+		}
+		if(right_down || right_pad){
+			resetSpeed();
+			ship_angle += TURN_RATE*time_since_last_update;
+		}
+		if((up_down || up_pad) && bonus_fuel < BONUS_DRAIN){
+			ship_thrust += THRUST_RATE[thrust_level]*time_since_last_update;
+			moved = true;
+		}
+		if(down_down || down_pad){
+			bonus_fuel = 0 ;
+			ship_thrust = 0;
+		}
+		if(ship_thrust > 2){
+			ship_thrust = 2;
+			moved = true;
+		}
+		if(ship_thrust < 0){
+			ship_thrust = 0 ;
+		}
+		if(moved == true){
+			if(moved)resetSpeed(); // Set speed to 1 when moving.
+				if(ship_thrust < fuel){
+					fuel -= ship_thrust;
+					var acc = THRUST_POWER[thrust_level]*ship_thrust;
+					if(!ship.landed && bonus_fuel >= BONUS_DRAIN){
+						acc+=BONUS_ACC[launch_level];
+						bonus_fuel -= BONUS_DRAIN;
+					}
+					var dx = acc*Math.cos(ship_angle);
+					var dy = acc*Math.sin(ship_angle);
+					ship.applyThrust(current_time, [dx, dy], navigation_level);
+				}else{
+					ship_thrust = 0;
+				}
+			
+		}
+		
+		// Control camera.
+		if(mouse_down && mouse_button == 2){
+			camera.zoom = down_zoom * Math.pow(1.01,(mouse_y - mouse_down_y));
+			if( camera.zoom < ship.radius*2){
+				camera.zoom = ship.radius*2;
+			} else if(camera.zoom > MAX_ZOOM){
+				camera.zoom = MAX_ZOOM;
+			}
+		}
+		
+		camera.x = m.x[0];
+		camera.y = m.x[1];
+		
+
+		if(last_m.parent_moment.entity != p.entity){ // If orbit shifted
+			resetSpeed(); // Set speed to 1.
+		}
+		
+		// Check for asteroid collisions
+		for(var k =0;k<space.length;k++){
+			if(space[k].type == ASTEROID){
+				var ax = space[k].getMoment(current_time).x;
+				if(distanceSquared(m.x,ax) < space[k].radius*space[k].radius){
+					accomplishments += "\nCrashed into an asteroid.";
+					setupGame(); // Die bitches.
+				}
+			}
+		}
+		
+		var ship_height2 = distanceSquared(m.x,p.x)
+		//If landed.
+		if(ship_height2 < p.entity.radius*p.entity.radius){
+			var m2 = MAX_LAND_SPEED[land_level] * MAX_LAND_SPEED[land_level];
+			if(p.entity.has_brakes){
+				m2 *= STATION_BREAK_EFFECT*STATION_BREAK_EFFECT;
+			}
+			
+			if(distanceSquared(m.v,p.v)> m2){
+				accomplishments += "\nCrashed into " + p.entity.name+".";
+				setupGame(); // Die bitches.
+			}else{
+				//console.log("You landed.");
+				land();
+			}
+		}
+		
+		if(ship.landed){
+			ship_angle = -Math.PI/2;
+			ship_thrust = 0;
+			if(p.entity.has_fuel){
+				fuel = MAX_FUEL[fuel_level];
+			}
+			if(p.entity.has_launchpad){
+				bonus_fuel = LAUNCHPAD_BONUS_FUEL[launch_level];
+			}
+		}
+		
+		// Refuel by satellite.
+		if(p.entity.has_satellite && ship_height2 < p.entity.mass*p.entity.mass*SATELLITE_RANGE_PER_MASS*SATELLITE_RANGE_PER_MASS){
+			fuel = MAX_FUEL[fuel_level];
+		}
+		
+		updateTimeButtons(Math.sqrt(ship_height2)-p.entity.radius);
+		
+		ship_log.addAction(ship, moved) ;
+			
+		// Draw screen.
+		drawScreen();
+	}
+	
+	function keyDownListener(evt) {
+		evt = evt || window.event;
+	    var key_code = evt.keyCode || evt.which;
+	    var character = String.fromCharCode(key_code); // This only works with letters. Unpredictable otherwise.
+	    if(key_code == 37 || character == "A"){ // Left
+	    	left_down = true;
+	    }else if(key_code == 38 || character == "W"){// Up
+	    	up_down = true;
+	    }else if(key_code == 39 || character == "D" ){// Right
+	    	right_down = true;
+	    }else if(key_code == 40 || character == "S"){// Down
+	    	down_down = true;
+	    }else if(character == "L"){
+	    	console.log(ship_log.toString());
+	    }
+	}
+	
+	function keyUpListener(evt) {
+		evt = evt || window.event;
+	    var key_code = evt.keyCode || evt.which;
+	    var character = String.fromCharCode(key_code); // This only works with letters. Unpredictable otherwise.
+	    if(key_code == 37 || character == "A"){ // Left
+	    	left_down = false;
+	    }else if(key_code == 38 || character == "W"){// Up
+	    	up_down = false;
+	    }else if(key_code == 39 || character == "D" ){// Right
+	    	right_down = false;
+	    }else if(key_code == 40 || character == "S"){// Down
+	    	down_down = false;
+	    }
+	}
+	
+	function mouseDownListener(evt) {
+		var bRect = theCanvas.getBoundingClientRect();
+		mouse_down_x = (evt.clientX - bRect.left)*(theCanvas.width/bRect.width);
+		mouse_down_y = (evt.clientY - bRect.top)*(theCanvas.height/bRect.height);
+		mouse_down = true ;
+		mouse_button = evt.button ;
+		if(mouse_button == 0){// Left press
+			//console.log(mouse_down_x +", " + mouse_down_y);
+		}else if(mouse_button == 2){ // Right press
+			down_zoom = camera.zoom;
+		}
+	}
+	
+	function mouseUpListener(evt) {
+		mouse_down = false ;
+		// Execute any buttons "clicked" (mouse up and down on the button)
+		for (var button_name in interface_buttons) {
+		       if (interface_buttons.hasOwnProperty(button_name)) {
+		    	   var b = interface_buttons[button_name];
+			       if(b.inside(mouse_x, mouse_y) && b.inside(mouse_down_x, mouse_down_y)){
+			    	   	last_pressed = button_name;
+			       		b.execute();
+			       }
+		       }
+		   }
+		
+		if(mouse_button == 0){// Left release
+			
+		}else if(mouse_button == 2){ // Right release
+			
+		}
+	}
+
+	function mouseMoveListener(evt) {
+		//getting mouse position correctly 
+		var bRect = theCanvas.getBoundingClientRect();
+		mouse_x = (evt.clientX - bRect.left)*(theCanvas.width/bRect.width);
+		mouse_y = (evt.clientY - bRect.top)*(theCanvas.height/bRect.height);
+		
+		if(mouse_down){
+			if(mouse_button == 0){// Left drag
+				
+			}else if(mouse_button == 2){ // Right drag
+				
+			}
+		}
+	}
+	
+	function mouseWheelListener(evt){
+		// Firefox and Chrome get different numbers from different events. One is 3 the other is -120 per notch.
+		var zoom = evt.wheelDelta ? -evt.wheelDelta*.2 : evt.detail*8; 
+		camera.zoom = camera.zoom * Math.pow(1.01,zoom);
+		if( camera.zoom < ship.radius*2){
+			camera.zoom = ship.radius*2;
+		} else if(camera.zoom > MAX_ZOOM){
+			camera.zoom = MAX_ZOOM;
+		}
+	}
+	
+	// Detects when a gamepad has been connected or disconnected
+	//TODO
+	function gamepadHandler(event, connecting) {
+	/*
+	  var gamepad = event.gamepad;
+	  // Note:
+	  // gamepad === navigator.getGamepads()[gamepad.index]
+
+	  if (connecting) {
+		gamepads[gamepad.index] = gamepad;
+	  } else {
+		delete gamepads[gamepad.index];
+	  }
+	  */
+	}
+	
+	// Scan gamepad inputs and converts to game control variables
+	// Should be called on each frame,
+	// TODO add menu and camera control to controller
+	function scanGamePads(){
+	  var gamepads = navigator.getGamepads ? navigator.getGamepads() : (navigator.webkitGetGamepads ? navigator.webkitGetGamepads : []);
+	  if (!gamepads) {
+	    return;
+	  }
+	  for(var gp_id in gamepads){
+	    var controller = gamepads[gp_id];
+		if(controller && controller.axes){
+			left_pad = controller.axes[0] < -dead_zone;
+			right_pad = controller.axes[0] > dead_zone;
+			up_pad = controller.axes[3] < -dead_zone;
+			down_pad = controller.axes[3] > dead_zone;
+		/*
+		for (var i = 0; i < controller.axes.length; i++) {
+			if(Math.abs(controller.axes[i]) > 0.1){
+				console.log("gamepad " + gp_id + " axis " + i +" :" + controller.axes[i]);
+			}
+		}
+		*/
+		}
+	  }
+	
+	
+	}
+	
+	init(); // Start the canvasApp.
+}
+
+</script>
+</head>
+<body>
+	<div style="top: 50px; text-align: center">
+		<canvas id="canvasOne" width="1280" height="720"
+			oncontextmenu="return false;">
+			Your browser does not support HTML5 canvas.
+		</canvas><br>
+			This is a game about exploring space with realistic orbital physics. Arrows keys or ASDW control the ship. Speed buttons are at the top.
+			Drag right mouse or scroll to zoom. You can land if you don't go too fast. Build stations to make navigating locations easier. 
+			Build a lab and buy ship upgrades with the science you get from exploring the solar system. Science all the things. 
+			This game auto-saves, so you can come back and science more later.
+		<br> 
+
+	</div>
+</body>
+</html>

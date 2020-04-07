@@ -1,0 +1,56 @@
+Hello, I'm Alrecenk, and I wrote Space Game. I love Kerbal Space Program, but I also think it demands a lot from its players. More than most are willing to put in. I wanted to make a game that delivered on the euphoria of threading a needle at 1,000mph and dropping a tin can where no little can has gone before, but without the hours of meticulous planning of launch stages. Unfortunately, this game is still literally rocket science, and so it has a bit of learning curve. This thread aims to cover some of the basics. Feel free to ask me if you have any questions.
+
+Getting Started (Going to the Moon)
+
+One of the first things you'll likely want to do upon starting a new game is to go to the moon. The first time you go to any new location you'll get science points, and those can be used to upgrade your ship on Earth (or anywhere you build a lab). In addition to science points there are also coins. Coins can be used to build buildings at any location you can land on. You only get coins if you complete a mission. You can pick up missions on Earth (or anywhere you build a colony). It's a good idea to pick up a visit moon mission before you launch.
+
+Whenever you launch from Earth (or anywhere you build a launchpad) you get a bonus purple launch fuel bar. It's like a first stage made of solid fuel boosters. If you press the down arrow or s while in launch mode you'll drop the launch stage; you'll stop accelerating, but you'll also lose any launch fuel you had left. Once you're out of launch mode you can accelerate with up arrow or w (increasing gradually to maximum) and cut your acceleration with the down arrow or s. Accelerating costs fuel, when you're out of fuel you can't accelerate. Get more fuel by returning to earth or landing anywhere with a station. If you get stuck (and it will happen) you can press the respawn button in the upper right to go back to Earth. There's no penalty for resetting or crashing.
+
+In order to get into orbit around Earth you need to get up out of the gravity well and also get moving sideways very fast. To orbit is to fall at the ground and miss. Use your initial launch fuel to mostly go up and turn just a little to the side. The moon of Earth orbits clockwise in this game, and you always launch from the top, so you'll want to go to the right to orbit in the same direction as the moon. Once your launch fuel runs out then you'll want to turn completely to the right, but wait until you reach the apex of your trajectory.  Once you're at the top  of your path boost at full speed until your path is a circle around the planet. Congratulations, you're in orbit! There's no air resistance in this game, so once you get into orbit it will be stable indefinitely.
+
+Boost in the direction that you're traveling to increase the size of your orbit or boost opposite your travel direction to decrease it. Note that the position of your orbit is unchanged at your location but the side of your orbit away from you moves. Use this technique to move one side of your orbit so it is just touching the moon's orbit. Once one side of your orbit is near the moon's path you can speed up time until your ship is on that side of the orbit and touching the moon's path. Don't worry if you overshoot, you can always go around again if you have to. Now boost again until the other side of your orbit touches the moon's path. You should now be in a similar orbit to the moon, but you still might not be very close to it.
+
+If the moon is ahead of you in the orbit you can (somewhat unintuitively ) boost away from it just a tiny bit until your orbit is a little bit smaller than that of the moon, but not too much smaller since you want to be close enough to get caught by the moon's gravity. When your orbit is smaller it will take less time to complete a cycle and you'll gain on the moon every orbit until eventually you get close enough and get caught by its gravity. Similarly if the moon is a bit behind you, you can boost away from it to make your orbit slightly larger, taking longer to go around, and the moon will catch you after a few orbits. In either case you can speed up time with the buttons at the top of the screen until you get caught by the moon's gravity. Don't worry about missing it; game speed always slows back to 1x when your orbiting focus changes or whenever you fire your rocket (so you have to stop boosting to speed up time).
+
+Once you're near the moon your trajectory will change to show your movement relative to the moon. Once you upgrade your navigation systems (highly recommended) you'll sometimes see a yellow line connecting two trajectories. You'll never actually travel this yellow line, the two green trajectories will line up at the time of orbital transfer. It's just there to help you plan your transfers more easily. Anyway, once you're in orbit around the moon it's a simple matter of boosting opposite your lunar trajectory to decrease your moon orbit and land. A green dot at the end of your trajectory means you will land safely, while a red X indicates you are moving too fast and will need to slow down before impact. If you do fly into a red X, you'll be reset on Earth. There's no penalty for dying, but you won't complete missions or get landing or return science unless you land safely.
+
+
+Science
+
+	Each of the 20 locations has 5 different science objectives that can each be completed for rewards exactly once. You'll get science points as soon as you complete an objective. Each of these objectives makes up 1% of game completion. You can click the research tab on any planet with a lab to see your current completion.
+
+	Fly-by (1 point) - Occurs the first time you are caught in the gravity of an object. You'll know this happens because your trajectory will change to be relative to that object.
+
+	Orbit (2 points) - Occurs when you complete one full orbit without firing your rocket. Note: it's not enough to be "in orbit" you have to go all the way around.
+
+	Land (2 points) - Occurs when you land safely on a new location. 
+
+	Return (2 points) - Occurs when you travel to a new location and then return to Earth or a location with a colony. This sequence is broken by resetting or crashing. You must safely travel to and from a location to get the reward. This reward also unlocks the ability to build a colony on the new location, so it's critical for expanding your reach into the outer solar system.
+
+	Lab (3 points) - Occurs when you build a lab at a location. In order to build a lab you must already have a colony.
+
+Ship Upgrades
+
+	Navigation - Increases the number orbital transfers that are predicted in the UI. This is very useful for planning gravitational slingshot or braking maneuvers and making sure you won't crash when you arrive somewhere. Recommended as first purchase.
+
+	Fuel - Increases the maximum regular fuel you start with. A solid second purchase.
+
+	Thrust - Increases the rate of acceleration when firing your rocket. This doesn't increase fuel efficiency. It simply allows you to make maneuvers faster. Nice but never required.
+
+	Land - Increases the maximum speed that is considered safe for landing. Convenient, but really only critical for landing on Jupiter.
+
+	Launch - Increases the amount of bonus launch fuel you get when launching from planets with launchpads. Can save a lot of regular fuel, but not always useful. Critical for getting to Venus (spoilers).
+
+Buildings
+
+	Station / Fuel - The first thing you have to buy. Refuels your ship on landing. Allows other purchases.
+
+	Colony - Requires return science completion to build. Counts for completing other return science. Allows picking up a mission on this planet. Allows building a lab.
+
+	Lab - Allows purchasing ship upgrades and viewing the science completion window. Rewards 3 science points when built.
+
+	Launchpad - Gives bonus launch fuel bar when launching from this location. Unlocks brakes.
+
+	Brakes - Increases the maximum speed that is considered safe for landing at this location.
+
+	Satellite - Requires all other buildings before it can be built. Refuels your ship in low orbit.
